@@ -90,7 +90,7 @@ async function renderSimilar(d) {
   const scored = all
     .filter((o) => o.id !== d.id)
     .map((o) => [o, jaccard(mine, tokenize(o.path))])
-    .filter(([, s]) => s > 0)
+    .filter(([, s]) => s >= 0.6)
     .sort((a, b) => b[1] - a[1])
     .slice(0, SIMILAR);
   if (!scored.length) return;
@@ -98,7 +98,7 @@ async function renderSimilar(d) {
     `<h2 class="section">similar datasets</h2><ul class="similar">${scored
       .map(
         ([o]) =>
-          `<li><a href="detail.html?id=${o.id}">#${o.id}</a> <span class="simpath">${esc(o.path)}</span></li>`,
+          `<li><a href="detail.html?id=${o.id}">#${o.id}</a> <a class="simpath" href="detail.html?id=${o.id}">${esc(o.path)}</a></li>`,
       )
       .join("")}</ul>`;
 }
@@ -145,6 +145,12 @@ function cellHtml(c) {
   if (c.image_url) {
     const u = esc(c.image_url);
     return `<a href="${u}" target="_blank"><img class="cellimg" loading="lazy" src="${u}" alt="${u}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="cellbroken">&#9888; unavailable</span></a><div class="cellurl"><a href="${u}" target="_blank">${u}</a></div>`;
+  }
+  if (c.video) {
+    let h = `<video class="cellvideo" controls preload="none" src="${mediaUrl(c.video)}"></video>`;
+    if (c.clipped) h += `<div class="clipnote">${esc(c.clipped)}</div>`;
+    if (c.struct) h += `<div class="cellstruct">${esc(c.struct)}</div>`;
+    return h;
   }
   if (c.audio) {
     let h = `<audio class="cellaudio" controls preload="none" src="${mediaUrl(c.audio)}"></audio>`;

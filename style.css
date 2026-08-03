@@ -130,7 +130,8 @@ h2.section { font-size: 16px; font-weight: 600; color: var(--fg); margin: 24px 0
 ul.similar { list-style: none; margin: 4px 0 12px; padding: 0; }
 ul.similar li { padding: 2px 0; word-break: break-all; }
 ul.similar a { color: var(--accent); text-decoration: none; }
-.simpath { color: var(--muted); }
+ul.similar a.simpath { color: var(--fg); }
+ul.similar a.simpath:hover { color: var(--accent); }
 
 .tablewrap { overflow-x: auto; }
 #pvwrap.fade-l {
@@ -156,6 +157,7 @@ table.head th, table.head td {
 table.head th { color: var(--muted); font-weight: 400; white-space: nowrap; }
 table.head td .cellimg { max-height: 220px; max-width: 300px; border: 1px solid var(--line); display: block; }
 table.head td .cellaudio { height: 34px; width: 100%; min-width: 300px; }
+table.head td .cellvideo { max-height: 320px; max-width: 400px; width: 100%; display: block; }
 table.head td .clipnote { font-size: 11px; color: var(--muted); margin-top: 2px; }
 table.head td .cellurl { font-size: 11px; margin-top: 2px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.head td .cellurl a { color: var(--muted); text-decoration: none; }
@@ -179,9 +181,9 @@ table.head td .imgrow.truncated {
   mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
 }
 table.head td .imgrow.expanded { max-height: none; -webkit-mask-image: none; mask-image: none; }
-table.head td .cellw { max-width: 780px; }
-table.head td .cellw.narrow { max-width: 240px; }
-table.head td .cellw.mid { max-width: 540px; }
+table.head td .cellw { max-width: 860px; }
+table.head td .cellw.narrow { max-width: 320px; }
+table.head td .cellw.mid { max-width: 640px; }
 table.head td .celltext {
   margin: 0;
   font: inherit;
@@ -220,7 +222,7 @@ table.head td .truncmark { color: var(--muted); user-select: none; }
 .parrow:hover { border-color: var(--fg); }
 .parrow:disabled { opacity: 0.4; cursor: default; border-color: var(--line); }
 
-details.meta { max-width: 900px; margin: 4px 0 8px; }
+details.meta { max-width: 1200px; margin: 4px 0 8px; }
 details.meta summary { color: var(--muted); cursor: pointer; }
 details.meta pre {
   overflow-x: auto;
@@ -231,7 +233,7 @@ details.meta pre {
 }
 
 .readme {
-  max-width: 900px;
+  max-width: 1200px;
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 4px 16px;
