@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>katalog</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="index.html">KATALOG</a>
+      <nav><a href="index.html">datasets</a></nav>
+    </header>
+    <main>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="search path" autofocus />
+        <a id="export" href="#">export csv</a>
+      </div>
+      <table>
+        <thead>
+          <tr id="head"></tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+    </main>
+    <div id="copybubble"></div>
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/list.js"></script>
+  </body>
+</html>
