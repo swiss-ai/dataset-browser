@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>reservation - katalog</title>
+    <link rel="icon" href="data:,">
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="split">
+    <header>
+      <a class="brand" href="index.html">KATALOG</a>
+      <nav><a href="index.html">datasets</a> <a href="reservation.html">reservation</a></nav>
+    </header>
+    <main>
+      <div class="pane left">
+        <h1>reservation (experimental) <span class="sub">SD-69241-apertus-1-5-0 -- drag to reserve, click to cancel</span></h1>
+        <div id="plotarea">
+          <svg id="yaxis"></svg>
+          <div id="plotwrap">
+            <svg id="plot"></svg>
+            <form id="pop" hidden>
+              <label>username <input name="user" autocomplete="off" spellcheck="false" /></label>
+              <label>nodes <input name="nodes" type="number" min="4" max="600" value="8" /></label>
+              <label>from <input name="from" autocomplete="off" /></label>
+              <label>to <input name="to" autocomplete="off" /></label>
+              <div class="poprow">
+                <button type="button" name="close">cancel</button>
+                <button type="submit">book</button>
+              </div>
+              <div class="err"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="pane right">
+        <div id="when"></div>
+        <div class="tscroll">
+          <table class="res">
+            <thead>
+              <tr>
+                <th class="c-user">username</th>
+                <th class="c-used num">used</th>
+                <th class="c-reserved num">reserved</th>
+                <th class="c-from from">from</th>
+                <th class="c-to to">to</th>
+                <th class="c-delta num">delta</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/reservation.js"></script>
+  </body>
+</html>

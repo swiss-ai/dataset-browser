@@ -23,7 +23,38 @@ async function main() {
   renderSpec(d);
   renderReadme(d);
   if (d.preview) renderPreview(d.preview);
+  renderCanonical(d);
   renderSimilar(d);
+}
+
+async function renderCanonical(d) {
+  if (d.canonical_id == null) return;
+  let c;
+  try {
+    c = await getJSON(`/api/canonicals/${d.canonical_id}`);
+  } catch {
+    return;
+  }
+  const members = c.datasets
+    .map((o) =>
+      o.id === d.id
+        ? `<li>#${o.id} <span class="simpath">${esc(o.path)}</span> <span class="na">(this)</span></li>`
+        : `<li><a href="detail.html?id=${o.id}">#${o.id}</a> <a class="simpath" href="detail.html?id=${o.id}">${esc(o.path)}</a></li>`,
+    )
+    .join("");
+  const prints = c.fingerprints
+    .map(
+      (f) =>
+        `<li><code>${esc(f.scheme)}</code> <span class="fpval" title="${esc(f.value)}">${esc(f.value.slice(0, 16))}</span> <a href="detail.html?id=${f.dataset_id}">#${f.dataset_id}</a></li>`,
+    )
+    .join("");
+  const copies =
+    c.datasets.length > 1
+      ? `<h2 class="section">identical copies</h2><ul class="similar">${members}</ul>`
+      : "";
+  document.getElementById("dcanonical").innerHTML =
+    copies +
+    `<details class="meta"><summary>fingerprints</summary><ul class="fingerprints">${prints}</ul></details>`;
 }
 
 function renderHead(d) {
@@ -44,6 +75,8 @@ function renderSpec(d) {
     ["files", commas(d.file_count)],
     ["mtime", whendate(d.latest_mtime)],
   ];
+  if (d.canonical_id != null)
+    specs.push(["canonical ID", `<code>c${d.canonical_id}</code>`]);
   document.getElementById("dspec").innerHTML =
     `<table class="spec">${specs
       .map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`)
