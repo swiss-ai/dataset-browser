@@ -14,7 +14,7 @@ cluster                          server                   github
 
 - The datasets stay where they are (no `mv`, no locking mechanism, no symlinks), indexing needs no cooperation from their owners
 - A scan job walks a curated set of locations and records, per dataset metadata (size, last-modified time, layout kind, columnar tables, sharded archives, media folders, ...)
-- Each dataset is tagged `volatile` (changed recently), `stable`, `missing`, or `invalid`
+- Each dataset is tagged `volatile` (changed recently), `stable`, `untracked`, or `invalid`
 - The result is a small catalog behind a read-only API
 
 ## API

@@ -3,7 +3,6 @@ const COLUMNS = [
   ["status", "status", (r) => r.status],
   ["mtime", "seen", (r) => r.latest_mtime],
   ["kind", "", (r) => r.kind || ""],
-  ["samples", "num", (r) => (r.sample_count == null ? -1 : r.sample_count)],
   ["size", "num", (r) => r.size_bytes],
   ["path", "path", (r) => r.path],
 ];
@@ -19,7 +18,7 @@ async function main() {
     datasets = await getJSON("/api/datasets");
   } catch (e) {
     document.getElementById("body").innerHTML =
-      `<tr><td colspan="7" class="empty">could not reach the api (${esc(e.message)}).</td></tr>`;
+      `<tr><td colspan="6" class="empty">could not reach the api (${esc(e.message)}).</td></tr>`;
     return;
   }
   render();
@@ -61,16 +60,11 @@ function render() {
 }
 
 function rowHtml(r) {
-  const samples =
-    r.sample_count == null
-      ? '<span class="na">n/a</span>'
-      : `<span title="${commas(r.sample_count)} samples">${humancount(r.sample_count)}</span>`;
   return `<tr data-search="${esc(r.path.toLowerCase())}">
 <td class="id"><a href="detail.html?id=${r.id}">#${r.id}</a></td>
 <td class="status status-${r.status}">${r.status}</td>
 <td class="seen">${whendate(r.latest_mtime)}</td>
 <td>${esc(r.kind || "")}</td>
-<td class="num">${samples}</td>
 <td class="num"><span title="${commas(r.size_bytes)} bytes">${humansize(r.size_bytes)}</span></td>
 <td class="path"><a class="pathlink" href="detail.html?id=${r.id}"><span class="pathtext" data-path="${esc(r.path)}">${esc(r.path)}</span></a></td>
 </tr>`;

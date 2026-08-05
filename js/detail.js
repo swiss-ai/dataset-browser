@@ -1,5 +1,4 @@
 const PAGE = 10;
-const SIMILAR = 8;
 const id = new URLSearchParams(location.search).get("id");
 
 let detail;
@@ -63,18 +62,25 @@ function renderHead(d) {
 }
 
 function renderSpec(d) {
-  const samples =
-    d.sample_count == null
-      ? '<span class="na">n/a</span>'
-      : commas(d.sample_count);
   const specs = [
     ["kind", esc(d.kind || "")],
     ["status", `<span class="status status-${d.status}">${d.status}</span>`],
-    ["samples", samples],
+  ];
+  if (d.sample_count != null)
+    specs.push([
+      "samples",
+      `<span title="${commas(d.sample_count)} samples">${humancount(d.sample_count)}</span>`,
+    ]);
+  if (d.token_count != null)
+    specs.push([
+      "tokens",
+      `<span title="${commas(d.token_count)} tokens">${humancount(d.token_count)}</span>`,
+    ]);
+  specs.push(
     ["size", `<span title="${commas(d.size_bytes)} bytes">${humansize(d.size_bytes)}</span>`],
     ["files", commas(d.file_count)],
     ["mtime", whendate(d.latest_mtime)],
-  ];
+  );
   if (d.canonical_id != null)
     specs.push(["canonical ID", `<code>c${d.canonical_id}</code>`]);
   document.getElementById("dspec").innerHTML =
@@ -90,10 +96,10 @@ function copyContext(ev) {
     `path: ${d.path}`,
     `kind: ${d.kind || ""}`,
     `status: ${d.status}`,
-    `samples: ${d.sample_count == null ? "n/a" : commas(d.sample_count)}`,
-    `size: ${humansize(d.size_bytes)}`,
-    `files: ${commas(d.file_count)}`,
   ];
+  if (d.sample_count != null) lines.push(`samples: ${commas(d.sample_count)}`);
+  if (d.token_count != null) lines.push(`tokens: ${commas(d.token_count)}`);
+  lines.push(`size: ${humansize(d.size_bytes)}`, `files: ${commas(d.file_count)}`);
   navigator.clipboard.writeText(lines.join("\n"));
   showCopied(ev.clientX, ev.clientY);
 }
@@ -111,46 +117,15 @@ function renderReadme(d) {
     `<h2 class="section">readme</h2>${meta}<div class="readme">${DOMPurify.sanitize(marked.parse(text))}</div>`;
 }
 
-async function renderSimilar(d) {
-  let all;
-  try {
-    all = await getJSON("/api/datasets");
-  } catch {
-    return;
-  }
-  const mine = tokenize(d.path);
-  if (!mine.size) return;
-  const scored = all
-    .filter((o) => o.id !== d.id)
-    .map((o) => [o, jaccard(mine, tokenize(o.path))])
-    .filter(([, s]) => s >= 0.6)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, SIMILAR);
-  if (!scored.length) return;
+function renderSimilar(d) {
+  if (!d.similar || !d.similar.length) return;
   document.getElementById("dsimilar").innerHTML =
-    `<h2 class="section">similar datasets</h2><ul class="similar">${scored
+    `<h2 class="section">similar datasets</h2><ul class="similar">${d.similar
       .map(
-        ([o]) =>
+        (o) =>
           `<li><a href="detail.html?id=${o.id}">#${o.id}</a> <a class="simpath" href="detail.html?id=${o.id}">${esc(o.path)}</a></li>`,
       )
       .join("")}</ul>`;
-}
-
-function tokenize(path) {
-  const base = path.split("/").filter(Boolean).pop() || "";
-  return new Set(
-    base
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((t) => t.length > 1),
-  );
-}
-
-function jaccard(a, b) {
-  let inter = 0;
-  for (const t of a) if (b.has(t)) inter++;
-  const union = a.size + b.size - inter;
-  return union ? inter / union : 0;
 }
 
 function mediaUrl(name) {

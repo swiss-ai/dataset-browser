@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>candidates - katalog</title>
+    <link rel="icon" href="data:,">
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="index.html">KATALOG</a>
+      <nav><a href="index.html">datasets</a></nav>
+      <form id="auth">
+        <span id="whoami"></span>
+        <button type="button" id="authbtn">sign in</button>
+        <div id="authbox" hidden>
+          <div class="hint">get your token from the cluster</div>
+          <code>cat /capstor/store/cscs/swissai/infra01/users/tchu/tokens/$USER</code>
+          <input name="token" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+          <div class="poprow">
+            <button type="button" name="close">cancel</button>
+            <button type="submit">sign in</button>
+          </div>
+          <div class="err"></div>
+        </div>
+      </form>
+    </header>
+    <main>
+      <div class="toolbar">
+        <span id="count"></span>
+        <label><input id="showmeta" type="checkbox" /> show meta-only</label>
+        <button type="button" id="copy">copy selected</button>
+      </div>
+      <div id="rows"></div>
+    </main>
+    <div id="copybubble"></div>
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/candidates.js"></script>
+  </body>
+</html>

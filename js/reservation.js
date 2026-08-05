@@ -7,6 +7,7 @@ const VIEW_H = VIEW_PAST_H + FUTURE_H;
 const HOLE = 300;
 const SNAP = 600;
 const MIN_NODES = 4;
+const DRAFT_ID = Number.MAX_SAFE_INTEGER;
 const DELTA_RED = 8;
 const REFRESH = 60000;
 const MIN_W = 1100;
@@ -25,8 +26,11 @@ let W = 0;
 let H = MIN_H;
 let hoverT = null;
 let drag = null;
+let draft = null;
 let placed = false;
-let plot, yaxis, wrap, pop, field, cursor, sel;
+let me = null;
+let plot, yaxis, wrap, pop, field, cursor, sel, auth, authBox;
+let clabel, clabelBox, clabelText;
 
 const $ = (id) => document.getElementById(id);
 const x = (t) => ((t - t0) / (t1 - t0)) * W;
@@ -72,9 +76,14 @@ async function main() {
   wrap = $("plotwrap");
   pop = $("pop");
   field = pop.elements;
-  field.user.value = localStorage.getItem("resUser") || "";
   field.nodes.min = MIN_NODES;
+  auth = $("auth");
+  authBox = $("authbox");
+  auth.addEventListener("submit", signIn);
+  $("authbtn").addEventListener("click", toggleAuth);
+  auth.elements.close.addEventListener("click", () => (authBox.hidden = true));
   pop.addEventListener("submit", submit);
+  pop.addEventListener("input", updateDraft);
   field.close.addEventListener("click", closePop);
   plot.addEventListener("mousemove", onMove);
   plot.addEventListener("mouseleave", onLeave);
@@ -84,11 +93,64 @@ async function main() {
   wrap.addEventListener("scroll", updateFade);
   window.addEventListener("mouseup", onUp);
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closePop();
+    if (e.key === "Escape") {
+      closePop();
+      authBox.hidden = true;
+    }
   });
   new ResizeObserver(render).observe(wrap);
+  me = await whoami();
+  renderAuth();
   await load();
   setInterval(load, REFRESH);
+}
+
+function token() {
+  return localStorage.getItem("resToken") || "";
+}
+
+async function whoami() {
+  if (!token()) return null;
+  const res = await fetch(API + "/api/me", { headers: { "X-Token": token() } });
+  if (!res.ok) {
+    localStorage.removeItem("resToken");
+    return null;
+  }
+  return (await res.json()).user;
+}
+
+function renderAuth() {
+  $("whoami").textContent = me || "";
+  $("authbtn").textContent = me ? "sign out" : "sign in";
+}
+
+function toggleAuth() {
+  if (me) {
+    localStorage.removeItem("resToken");
+    me = null;
+    closePop();
+    renderAuth();
+    render();
+    return;
+  }
+  authBox.hidden = !authBox.hidden;
+  if (!authBox.hidden) auth.elements.token.focus();
+}
+
+async function signIn(e) {
+  e.preventDefault();
+  const err = auth.querySelector(".err");
+  localStorage.setItem("resToken", auth.elements.token.value.trim());
+  me = await whoami();
+  if (!me) {
+    err.textContent = "invalid token";
+    return;
+  }
+  err.textContent = "";
+  auth.elements.token.value = "";
+  authBox.hidden = true;
+  renderAuth();
+  render();
 }
 
 async function load() {
@@ -134,15 +196,20 @@ function segments(now) {
   return segs;
 }
 
-function lanes() {
-  const cuts = [...new Set(reservations.flatMap((r) => [r.start, r.end]))].sort(
+function booked() {
+  if (!draft) return reservations;
+  return [...reservations, { id: DRAFT_ID, user: me, draft: true, ...draft }];
+}
+
+function lanes(rows) {
+  const cuts = [...new Set(rows.flatMap((r) => [r.start, r.end]))].sort(
     (a, b) => a - b,
   );
   const out = new Map();
   for (let i = 0; i + 1 < cuts.length; i++) {
     const a = cuts[i];
     const b = cuts[i + 1];
-    const active = reservations
+    const active = rows
       .filter((r) => r.start <= a && b <= r.end)
       .sort((p, q) => p.start - q.start || p.id - q.id);
     let base = 0;
@@ -165,6 +232,31 @@ function sampleAt(t) {
     else if (s.ts > t) break;
   }
   return best;
+}
+
+function dayLinesSvg() {
+  const out = [];
+  const now = new Date();
+  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const tomorrowMs = todayMs + 86400000;
+  const d0 = new Date(t0 * 1000);
+  d0.setHours(0, 0, 0, 0);
+  let midnight = Math.floor(d0.getTime() / 1000);
+  if (midnight < t0) midnight += 86400;
+  for (let t = midnight; t <= t1; t += 86400) {
+    const tMs = t * 1000;
+    let label;
+    if (tMs === todayMs) label = "today";
+    else if (tMs === tomorrowMs) label = "tomorrow";
+    else {
+      const d = new Date(tMs);
+      label = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+    }
+    const xx = x(t);
+    out.push(`<line class="day" x1="${xx}" y1="${PAD_T}" x2="${xx}" y2="${H - PAD_B}"/>`);
+    out.push(`<text class="axis" x="${xx}" y="${PAD_T - 4}" text-anchor="middle">${label}</text>`);
+  }
+  return out;
 }
 
 function gridSvg() {
@@ -192,9 +284,10 @@ function usageSvg(now) {
 }
 
 function bookingsSvg() {
-  const byId = lanes();
+  const rows = booked();
+  const byId = lanes(rows);
   const out = [];
-  for (const r of reservations) {
+  for (const r of rows) {
     for (const seg of byId.get(r.id) || []) {
       const x1 = x(Math.max(seg.from, t0));
       const w = Math.max(0, x(Math.min(seg.to, t1)) - x1);
@@ -202,7 +295,9 @@ function bookingsSvg() {
       const yt = y(seg.base + r.nodes);
       const yb = y(seg.base);
       const cid = `rc${out.length}`;
-      out.push(`<rect class="res" data-res="${r.id}" x="${x1}" y="${yt}" width="${w}" height="${yb - yt}"/>
+      const cls = r.draft ? " draft" : r.user === me ? " mine" : "";
+      const tag = r.draft ? "" : ` data-res="${r.id}"`;
+      out.push(`<rect class="res${cls}"${tag} x="${x1}" y="${yt}" width="${w}" height="${yb - yt}"/>
 <clipPath id="${cid}"><rect x="${x1 + 3}" y="${yt}" width="${Math.max(0, w - 5)}" height="${yb - yt}"/></clipPath>
 <text class="reslabel" clip-path="url(#${cid})" x="${x1 + 4}" y="${(yt + yb) / 2 + 4}">${esc(r.user)} ${r.nodes}</text>`);
     }
@@ -214,9 +309,11 @@ function overlaySvg(now) {
   const xn = x(now);
   return [
     `<line class="now" x1="${xn}" y1="${PAD_T}" x2="${xn}" y2="${H - PAD_B}"/>`,
-    `<text class="axis" x="${xn}" y="${PAD_T - 4}" text-anchor="middle">now</text>`,
+    `<rect class="nowbg" x="${xn - 14}" y="${PAD_T - 13}" width="28" height="13" rx="2"/>`,
+    `<text class="axis nowlabel" x="${xn}" y="${PAD_T - 4}" text-anchor="middle">now</text>`,
     `<line id="cursor" y1="${PAD_T}" y2="${H - PAD_B}"/>`,
     `<rect id="sel" y="${PAD_T}" height="${H - PAD_T - PAD_B}"/>`,
+    `<g id="clabel"><rect y="${H - PAD_B + 2}" height="14"/><text y="${H - PAD_B + 12}" text-anchor="middle"></text></g>`,
   ];
 }
 
@@ -226,7 +323,7 @@ function render() {
   H = clamp(wrap.clientHeight, MIN_H, MAX_H);
   t0 = now - PAST_H * 3600;
   t1 = now + FUTURE_H * 3600;
-  for (const r of reservations) if (r.end > t1) t1 = r.end;
+  for (const r of booked()) if (r.end > t1) t1 = r.end;
   const pxh = Math.max(wrap.clientWidth, MIN_W) / VIEW_H;
   W = ((t1 - t0) / 3600) * pxh;
   samples = buildSamples();
@@ -235,7 +332,9 @@ function render() {
   plot.style.width = W + "px";
   plot.style.height = H + "px";
   plot.innerHTML = [
-    `<defs><pattern id="stripes" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="stripe" x1="0" y1="0" x2="0" y2="7"/></pattern></defs>`,
+    `<defs><pattern id="stripes" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="stripe" x1="0" y1="0" x2="0" y2="7"/></pattern>
+<pattern id="draftfill" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="draftstripe" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>`,
+    ...dayLinesSvg(),
     ...gridSvg(),
     ...usageSvg(now),
     ...bookingsSvg(),
@@ -243,6 +342,9 @@ function render() {
   ].join("");
   cursor = $("cursor");
   sel = $("sel");
+  clabel = $("clabel");
+  clabelBox = clabel.querySelector("rect");
+  clabelText = clabel.querySelector("text");
 
   yaxis.setAttribute("viewBox", `0 0 40 ${H}`);
   yaxis.style.height = H + "px";
@@ -288,7 +390,7 @@ function runningAt(t) {
 
 function rowHtml(r, past) {
   const book = r.book;
-  const name = esc(book ? r.user : mask(r.user));
+  const name = esc(book || me ? r.user : mask(r.user));
   const used = !past ? "" : r.used == null ? "?" : r.used;
   const reserved = book ? book.nodes : "";
   const from = book ? `${clockHtml(book.start)} <span class="dt">-</span>` : "";
@@ -355,12 +457,24 @@ function onMove(e) {
   cursor.setAttribute("x2", px);
   cursor.style.visibility = "visible";
   hoverT = Math.round(invX(px));
+  showLabel(px);
   renderTable();
+}
+
+function showLabel(px) {
+  clabelText.textContent = clock(hoverT);
+  const w = clabelText.getComputedTextLength() + 10;
+  const cx = clamp(px, w / 2, W - w / 2);
+  clabelText.setAttribute("x", cx);
+  clabelBox.setAttribute("x", cx - w / 2);
+  clabelBox.setAttribute("width", w);
+  clabel.style.visibility = "visible";
 }
 
 function onLeave() {
   if (drag) return;
   if (cursor) cursor.style.visibility = "hidden";
+  if (clabel) clabel.style.visibility = "hidden";
   hoverT = null;
   renderTable();
 }
@@ -384,20 +498,38 @@ function onUp(e) {
 }
 
 function openPop(xa, xb) {
+  if (!me) {
+    authBox.hidden = false;
+    auth.elements.token.focus();
+    return;
+  }
   const from = snap(invX(xa));
   const to = Math.max(snap(invX(xb)), from + SNAP);
   field.from.value = stamp(from);
   field.to.value = stamp(to);
   setError("");
+  updateDraft();
   pop.hidden = false;
   pop.style.left =
     Math.min(xa, wrap.scrollLeft + wrap.clientWidth - pop.offsetWidth - 8) + "px";
   pop.style.top = PAD_T + 8 + "px";
-  (field.user.value ? field.nodes : field.user).focus();
+  field.nodes.focus();
 }
 
 function closePop() {
   if (pop) pop.hidden = true;
+  if (draft) {
+    draft = null;
+    render();
+  }
+}
+
+function updateDraft() {
+  const nodes = parseInt(field.nodes.value, 10);
+  const start = parseWhen(field.from.value);
+  const end = parseWhen(field.to.value);
+  draft = nodes > 0 && start && end && end > start ? { nodes, start, end } : null;
+  render();
 }
 
 function setError(msg) {
@@ -406,19 +538,16 @@ function setError(msg) {
 
 async function submit(e) {
   e.preventDefault();
-  const user = field.user.value.trim();
   const nodes = parseInt(field.nodes.value, 10);
   const start = parseWhen(field.from.value);
   const end = parseWhen(field.to.value);
-  if (!user) return setError("enter a username");
   if (!(nodes >= MIN_NODES)) return setError(`book at least ${MIN_NODES} nodes`);
   if (!start || !end) return setError("time must be HH:MM or HH:MM DD.MM.");
-  localStorage.setItem("resUser", user);
   try {
     const res = await fetch(API + "/api/reservations", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user, nodes, start, end }),
+      headers: { "Content-Type": "application/json", "X-Token": token() },
+      body: JSON.stringify({ nodes, start, end }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -433,10 +562,13 @@ async function submit(e) {
 
 async function cancel(id) {
   const r = reservations.find((o) => o.id === id);
-  if (!r) return;
+  if (!r || r.user !== me) return;
   if (!confirm(`cancel ${r.user} ${r.nodes} nodes ${clock(r.start)} - ${clock(r.end)}?`))
     return;
-  await fetch(API + "/api/reservations/" + id, { method: "DELETE" });
+  await fetch(API + "/api/reservations/" + id, {
+    method: "DELETE",
+    headers: { "X-Token": token() },
+  });
   await load();
 }
 
